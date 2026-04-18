@@ -25,10 +25,13 @@ local default_config = {
     cache_dir = vim.fn.stdpath("cache") .. "/shaderdebug",
     runner_source = vim.fn.stdpath("config") .. "/lua/shaderdebug/renderer.c",
     runner_binary = vim.fn.stdpath("cache") .. "/shaderdebug/shaderdebug_renderer",
+    runner_source_opengl = vim.fn.stdpath("config") .. "/lua/shaderdebug/renderer_gl.cpp",
+    runner_binary_opengl = vim.fn.stdpath("cache") .. "/shaderdebug/shaderdebug_renderer_gl",
     slangc = vim.fn.exepath("slangc") ~= "" and vim.fn.exepath("slangc") or "slangc",
     glslang_validator = vim.fn.exepath("glslangValidator") ~= "" and vim.fn.exepath("glslangValidator") or "glslangValidator",
     ffmpeg = vim.fn.exepath("ffmpeg") ~= "" and vim.fn.exepath("ffmpeg") or "ffmpeg",
     slang_profile = "sm_6_5",
+    opengl_profile = "glsl_450",
 }
 
 local config = vim.deepcopy(default_config)
@@ -57,22 +60,22 @@ local start_preview_job
 
 local debug_helpers = table.concat({
     "",
-    "float4 __shaderdebug_toColor(float value) { return float4(value, value, value, 1.0); }",
-    "float4 __shaderdebug_toColor(float2 value) { return float4(value.x, value.y, 0.0, 1.0); }",
-    "float4 __shaderdebug_toColor(float3 value) { return float4(value, 1.0); }",
-    "float4 __shaderdebug_toColor(float4 value) { return value; }",
-    "float4 __shaderdebug_toColor(int value) { float f = clamp(float(value) / 255.0, 0.0, 1.0); return float4(f, f, f, 1.0); }",
-    "float4 __shaderdebug_toColor(int2 value) { return float4(clamp(float2(value) / 255.0, 0.0, 1.0), 0.0, 1.0); }",
-    "float4 __shaderdebug_toColor(int3 value) { return float4(clamp(float3(value) / 255.0, 0.0, 1.0), 1.0); }",
-    "float4 __shaderdebug_toColor(int4 value) { return clamp(float4(value) / 255.0, 0.0, 1.0); }",
-    "float4 __shaderdebug_toColor(uint value) { float f = clamp(float(value) / 255.0, 0.0, 1.0); return float4(f, f, f, 1.0); }",
-    "float4 __shaderdebug_toColor(uint2 value) { return float4(clamp(float2(value) / 255.0, 0.0, 1.0), 0.0, 1.0); }",
-    "float4 __shaderdebug_toColor(uint3 value) { return float4(clamp(float3(value) / 255.0, 0.0, 1.0), 1.0); }",
-    "float4 __shaderdebug_toColor(uint4 value) { return clamp(float4(value) / 255.0, 0.0, 1.0); }",
-    "float4 __shaderdebug_toColor(bool value) { return value ? float4(1.0, 1.0, 1.0, 1.0) : float4(0.0, 0.0, 0.0, 1.0); }",
-    "float4 __shaderdebug_toColor(bool2 value) { return float4(value.x ? 1.0 : 0.0, value.y ? 1.0 : 0.0, 0.0, 1.0); }",
-    "float4 __shaderdebug_toColor(bool3 value) { return float4(value.x ? 1.0 : 0.0, value.y ? 1.0 : 0.0, value.z ? 1.0 : 0.0, 1.0); }",
-    "float4 __shaderdebug_toColor(bool4 value) { return float4(value.x ? 1.0 : 0.0, value.y ? 1.0 : 0.0, value.z ? 1.0 : 0.0, value.w ? 1.0 : 0.0); }",
+    "float4 shaderdebug_toColor(float value) { return float4(value, value, value, 1.0); }",
+    "float4 shaderdebug_toColor(float2 value) { return float4(value.x, value.y, 0.0, 1.0); }",
+    "float4 shaderdebug_toColor(float3 value) { return float4(value, 1.0); }",
+    "float4 shaderdebug_toColor(float4 value) { return value; }",
+    "float4 shaderdebug_toColor(int value) { float f = clamp(float(value) / 255.0, 0.0, 1.0); return float4(f, f, f, 1.0); }",
+    "float4 shaderdebug_toColor(int2 value) { return float4(clamp(float2(value) / 255.0, 0.0, 1.0), 0.0, 1.0); }",
+    "float4 shaderdebug_toColor(int3 value) { return float4(clamp(float3(value) / 255.0, 0.0, 1.0), 1.0); }",
+    "float4 shaderdebug_toColor(int4 value) { return clamp(float4(value) / 255.0, 0.0, 1.0); }",
+    "float4 shaderdebug_toColor(uint value) { float f = clamp(float(value) / 255.0, 0.0, 1.0); return float4(f, f, f, 1.0); }",
+    "float4 shaderdebug_toColor(uint2 value) { return float4(clamp(float2(value) / 255.0, 0.0, 1.0), 0.0, 1.0); }",
+    "float4 shaderdebug_toColor(uint3 value) { return float4(clamp(float3(value) / 255.0, 0.0, 1.0), 1.0); }",
+    "float4 shaderdebug_toColor(uint4 value) { return clamp(float4(value) / 255.0, 0.0, 1.0); }",
+    "float4 shaderdebug_toColor(bool value) { return value ? float4(1.0, 1.0, 1.0, 1.0) : float4(0.0, 0.0, 0.0, 1.0); }",
+    "float4 shaderdebug_toColor(bool2 value) { return float4(value.x ? 1.0 : 0.0, value.y ? 1.0 : 0.0, 0.0, 1.0); }",
+    "float4 shaderdebug_toColor(bool3 value) { return float4(value.x ? 1.0 : 0.0, value.y ? 1.0 : 0.0, value.z ? 1.0 : 0.0, 1.0); }",
+    "float4 shaderdebug_toColor(bool4 value) { return float4(value.x ? 1.0 : 0.0, value.y ? 1.0 : 0.0, value.z ? 1.0 : 0.0, value.w ? 1.0 : 0.0); }",
     "",
 }, "\n")
 
@@ -143,24 +146,60 @@ local function file_mtime(path)
     return stat and stat.mtime and stat.mtime.sec or 0
 end
 
-local function ensure_runner()
+local function normalize_api(value)
+    if type(value) ~= "string" then
+        return nil
+    end
+
+    local normalized = value:lower()
+    if normalized == "gl" or normalized == "ogl" then
+        return "opengl"
+    end
+    if normalized == "vk" then
+        return "vulkan"
+    end
+    if normalized == "auto" or normalized == "opengl" or normalized == "vulkan" then
+        return normalized
+    end
+
+    return nil
+end
+
+local function ensure_runner(api)
     ensure_cache_dir()
 
-    local source = config.runner_source
-    local binary = config.runner_binary
+    local runner_api = normalize_api(api) or "vulkan"
+    local source = runner_api == "opengl" and config.runner_source_opengl or config.runner_source
+    local binary = runner_api == "opengl" and config.runner_binary_opengl or config.runner_binary
     local needs_build = vim.fn.executable(binary) ~= 1 or file_mtime(source) > file_mtime(binary)
     if not needs_build then
         return true
     end
 
-    local command = string.format(
-        'c++ -x c++ "%s" -O2 -std=c++20 -o "%s" $(pkg-config --cflags --libs vulkan libpng)',
-        source,
-        binary
-    )
+    local command
+    if runner_api == "opengl" then
+        command = string.format(
+            'c++ -x c++ "%s" -O2 -std=c++20 -o "%s" $(pkg-config --cflags --libs egl epoxy libpng)',
+            source,
+            binary
+        )
+    else
+        command = string.format(
+            'c++ -x c++ "%s" -O2 -std=c++20 -o "%s" $(pkg-config --cflags --libs vulkan libpng)',
+            source,
+            binary
+        )
+    end
     local result = system_wait({ "bash", "-lc", command })
     if result.code ~= 0 then
-        notify("Failed to build shaderdebug Vulkan renderer:\n" .. (result.stderr ~= "" and result.stderr or result.stdout), vim.log.levels.ERROR)
+        notify(
+            string.format(
+                "Failed to build shaderdebug %s renderer:\n%s",
+                runner_api,
+                result.stderr ~= "" and result.stderr or result.stdout
+            ),
+            vim.log.levels.ERROR
+        )
         return false
     end
 
@@ -256,7 +295,7 @@ local function build_instrumented_source(bufnr, cursor_line)
 
     local new_lines = vim.deepcopy(lines)
     local indent = line:match("^(%s*)") or ""
-    new_lines[cursor_line] = indent .. "return __shaderdebug_toColor(" .. expression .. ");"
+    new_lines[cursor_line] = indent .. "return shaderdebug_toColor(" .. expression .. ");"
 
     local depth = 0
     for i = 1, cursor_line do
@@ -351,19 +390,10 @@ local function binding_map(entry)
     return map
 end
 
-local function detect_api(reflection, entry)
-    if config.api ~= "auto" then
-        return config.api
-    end
-
-    if entry and entry.stage == "fragment" then
-        return "vulkan"
-    end
-
-    for _, parameter in ipairs(reflection.parameters or {}) do
-        if parameter.binding and parameter.binding.kind == "descriptorTableSlot" then
-            return "vulkan"
-        end
+local function detect_api()
+    local configured = normalize_api(config.api) or "auto"
+    if configured ~= "auto" then
+        return configured
     end
 
     return "vulkan"
@@ -474,8 +504,8 @@ end
 local function default_glsl_expr(typeinfo, location, name)
     local kind = typeinfo.kind
     local scalar = typeinfo.scalarType or (typeinfo.elementType and typeinfo.elementType.scalarType)
-    local uv = "__shaderdebug_uv"
-    local centered = "__shaderdebug_centered"
+    local uv = "shaderdebug_uv"
+    local centered = "shaderdebug_centered"
 
     if kind == "scalar" then
         if scalar == "float32" then
@@ -572,8 +602,9 @@ local function collect_fragment_varyings(entry)
     return deduped
 end
 
-local function build_vertex_glsl(entry)
+local function build_vertex_glsl(entry, api)
     local varyings = collect_fragment_varyings(entry)
+    local vertex_index = api == "opengl" and "gl_VertexID" or "gl_VertexIndex"
     local lines = {
         "#version 450",
     }
@@ -587,17 +618,17 @@ local function build_vertex_glsl(entry)
     end
 
     vim.list_extend(lines, {
-        "vec2 __shaderdebug_positions[3] = vec2[](",
+        "vec2 shaderdebug_positions[3] = vec2[](",
         "    vec2(-1.0, -1.0),",
         "    vec2( 3.0, -1.0),",
         "    vec2(-1.0,  3.0)",
         ");",
         "void main()",
         "{",
-        "    vec2 pos = __shaderdebug_positions[gl_VertexIndex];",
+        string.format("    vec2 pos = shaderdebug_positions[%s];", vertex_index),
         "    gl_Position = vec4(pos, 0.0, 1.0);",
-        "    vec2 __shaderdebug_uv = pos * 0.5 + 0.5;",
-        "    vec2 __shaderdebug_centered = __shaderdebug_uv * 2.0 - 1.0;",
+        "    vec2 shaderdebug_uv = pos * 0.5 + 0.5;",
+        "    vec2 shaderdebug_centered = shaderdebug_uv * 2.0 - 1.0;",
     })
 
     for _, varying in ipairs(varyings) do
@@ -614,13 +645,18 @@ local function build_vertex_glsl(entry)
     return table.concat(lines, "\n")
 end
 
-local function compile_vertex_spirv(vertex_glsl, prefix)
+local function build_vertex_artifact(vertex_glsl, prefix, api)
     local source_path = prefix .. ".vert.glsl"
-    local output_path = prefix .. ".vert.spv"
     local ok, err = write_text(source_path, vertex_glsl)
     if not ok then
         return nil, err
     end
+
+    if api == "opengl" then
+        return source_path
+    end
+
+    local output_path = prefix .. ".vert.spv"
 
     local result = system_wait({
         config.glslang_validator,
@@ -1036,7 +1072,30 @@ local function prepare_manifest(specs, shader_key, prefix, context)
     return manifest_path, prepared_specs
 end
 
-local function fragment_compile_spec(temp_source, prefix, entry)
+local function fragment_compile_spec(temp_source, prefix, entry, api)
+    if api == "opengl" then
+        return {
+            fragment_spv = prefix .. ".frag.glsl",
+            reflection_json = prefix .. ".reflect.json",
+            command = {
+                config.slangc,
+                "-target",
+                "glsl",
+                "-profile",
+                config.opengl_profile,
+                "-entry",
+                entry,
+                "-stage",
+                "fragment",
+                "-reflection-json",
+                prefix .. ".reflect.json",
+                temp_source,
+                "-o",
+                prefix .. ".frag.glsl",
+            },
+        }
+    end
+
     return {
         fragment_spv = prefix .. ".frag.spv",
         reflection_json = prefix .. ".reflect.json",
@@ -1061,7 +1120,15 @@ local function fragment_compile_spec(temp_source, prefix, entry)
     }
 end
 
-local function vertex_compile_spec(prefix)
+local function vertex_compile_spec(prefix, api)
+    if api == "opengl" then
+        return {
+            source_path = prefix .. ".vert.glsl",
+            output_path = prefix .. ".vert.glsl",
+            command = nil,
+        }
+    end
+
     return {
         source_path = prefix .. ".vert.glsl",
         output_path = prefix .. ".vert.spv",
@@ -1079,9 +1146,9 @@ local function vertex_compile_spec(prefix)
     }
 end
 
-local function render_command_spec(vertex_spv, fragment_spv, manifest_path, output_png, entry)
+local function render_command_spec(api, vertex_spv, fragment_spv, manifest_path, output_png, entry)
     return {
-        config.runner_binary,
+        api == "opengl" and config.runner_binary_opengl or config.runner_binary,
         "--vertex",
         vertex_spv,
         "--fragment",
@@ -1097,19 +1164,73 @@ local function render_command_spec(vertex_spv, fragment_spv, manifest_path, outp
     }
 end
 
-local function compile_fragment_spirv(temp_source, prefix, entry)
-    local spec = fragment_compile_spec(temp_source, prefix, entry)
+local function adapt_opengl_fragment_glsl(path)
+    local source = read_text(path)
+    if not source then
+        return nil, "Failed to read generated GLSL: " .. path
+    end
+
+    local texture_sampler_pairs = {}
+    for texture_name, sampler_name in source:gmatch("sampler2D%(([%w_]+),([%w_]+)%)") do
+        texture_sampler_pairs[#texture_sampler_pairs + 1] = {
+            texture = texture_name,
+            sampler = sampler_name,
+        }
+    end
+
+    if #texture_sampler_pairs == 0 then
+        return true
+    end
+
+    local transformed = source
+    for _, pair in ipairs(texture_sampler_pairs) do
+        local texture_decl_pattern = "layout%(binding = (%d+)%)%s*\nuniform texture2D " .. pair.texture .. ";"
+        transformed = transformed:gsub(texture_decl_pattern, function(binding)
+            return string.format("layout(binding = %s)\nuniform sampler2D %s;", binding, pair.texture)
+        end, 1)
+
+        transformed = transformed:gsub("\nsampler2D%(" .. pair.texture .. ",%s*" .. pair.sampler .. "%)", "\n" .. pair.texture)
+        transformed = transformed:gsub("sampler2D%(" .. pair.texture .. ",%s*" .. pair.sampler .. "%)", pair.texture)
+
+        local sampler_decl_pattern = "\n#line [^\n]*\nlayout%(binding = %d+%)%s*\nuniform sampler " .. pair.sampler .. ";\n*"
+        local replaced = false
+        transformed = transformed:gsub(sampler_decl_pattern, function()
+            replaced = true
+            return "\n"
+        end, 1)
+        if not replaced then
+            transformed = transformed:gsub("layout%(binding = %d+%)%s*\nuniform sampler " .. pair.sampler .. ";\n*", "", 1)
+        end
+    end
+
+    local ok, err = write_text(path, transformed)
+    if not ok then
+        return nil, err
+    end
+
+    return true
+end
+
+local function compile_fragment_spirv(temp_source, prefix, entry, api)
+    local spec = fragment_compile_spec(temp_source, prefix, entry, api)
     local result = system_wait(spec.command)
 
     if result.code ~= 0 then
         return nil, (result.stderr ~= "" and result.stderr) or result.stdout
     end
 
+    if api == "opengl" then
+        local ok, err = adapt_opengl_fragment_glsl(spec.fragment_spv)
+        if not ok then
+            return nil, err
+        end
+    end
+
     return spec.fragment_spv, spec.reflection_json
 end
 
-local function render_vulkan(vertex_spv, fragment_spv, manifest_path, output_png, entry)
-    local result = system_wait(render_command_spec(vertex_spv, fragment_spv, manifest_path, output_png, entry))
+local function render_preview(api, vertex_spv, fragment_spv, manifest_path, output_png, entry)
+    local result = system_wait(render_command_spec(api, vertex_spv, fragment_spv, manifest_path, output_png, entry))
 
     if result.code ~= 0 then
         return nil, (result.stderr ~= "" and result.stderr) or result.stdout
@@ -1473,10 +1594,6 @@ local function prepare_render_request(opts)
         return nil, "Current buffer is not a Slang file"
     end
 
-    if ensure_runner() ~= true then
-        return nil, "Renderer build failed"
-    end
-
     local cursor_line = opts.cursor_line or current_cursor_line_for_buffer(bufnr)
     local payload, err = build_instrumented_source(bufnr, cursor_line)
     if not payload then
@@ -1488,7 +1605,14 @@ local function prepare_render_request(opts)
         return nil, output_png
     end
 
+    local shader_key = shader_key_for_buffer(bufnr)
+    local api = detect_api()
+    if ensure_runner(api) ~= true then
+        return nil, "Renderer build failed"
+    end
+
     return {
+        api = api,
         opts = opts,
         bufnr = bufnr,
         cursor_line = cursor_line,
@@ -1496,7 +1620,7 @@ local function prepare_render_request(opts)
         temp_source = temp_source,
         output_png = output_png,
         prefix = prefix,
-        shader_key = shader_key_for_buffer(bufnr),
+        shader_key = shader_key,
     }
 end
 
@@ -1514,10 +1638,11 @@ local function render_current_line(opts)
     local output_png = request.output_png
     local prefix = request.prefix
     local shader_key = request.shader_key
+    local api = request.api
 
-    local fragment_spv, reflection_json_or_err = compile_fragment_spirv(temp_source, prefix, payload.entry)
+    local fragment_spv, reflection_json_or_err = compile_fragment_spirv(temp_source, prefix, payload.entry, api)
     if not fragment_spv then
-        return nil, "Slang SPIR-V compile failed:\n" .. reflection_json_or_err
+        return nil, string.format("Slang %s compile failed:\n%s", api == "opengl" and "GLSL" or "SPIR-V", reflection_json_or_err)
     end
 
     local reflection, reflect_err = parse_reflection(reflection_json_or_err)
@@ -1530,14 +1655,14 @@ local function render_current_line(opts)
         return nil, "No fragment entry reflection found for " .. payload.entry
     end
 
-    local vertex_glsl, vertex_err = build_vertex_glsl(entry)
+    local vertex_glsl, vertex_err = build_vertex_glsl(entry, api)
     if not vertex_glsl then
         return nil, vertex_err
     end
 
-    local vertex_spv, vertex_spv_err = compile_vertex_spirv(vertex_glsl, prefix)
+    local vertex_spv, vertex_spv_err = build_vertex_artifact(vertex_glsl, prefix, api)
     if not vertex_spv then
-        return nil, "Vertex SPIR-V compile failed:\n" .. vertex_spv_err
+        return nil, string.format("Vertex %s build failed:\n%s", api == "opengl" and "GLSL" or "SPIR-V", vertex_spv_err)
     end
 
     local specs = collect_resource_specs(reflection, entry)
@@ -1551,7 +1676,6 @@ local function render_current_line(opts)
     end
     local prepared_specs = prepared_specs_or_err
 
-    local api = detect_api(reflection, entry)
     local result = {
         api = api,
         entry = payload.entry,
@@ -1568,9 +1692,9 @@ local function render_current_line(opts)
     }
 
     if not opts.skip_render then
-        local ok, render_err = render_vulkan(vertex_spv, fragment_spv, manifest_path, output_png, payload.entry)
+        local ok, render_err = render_preview(api, vertex_spv, fragment_spv, manifest_path, output_png, payload.entry)
         if not ok then
-            return nil, "Vulkan preview render failed:\n" .. render_err
+            return nil, string.format("%s preview render failed:\n%s", api == "opengl" and "OpenGL" or "Vulkan", render_err)
         end
     end
 
@@ -1638,8 +1762,17 @@ start_preview_job = function(opts, on_complete)
         end)
     end
 
-    local fragment_spec = fragment_compile_spec(request.temp_source, request.prefix, request.payload.entry)
-    spawn(fragment_spec.command, "Slang SPIR-V compile failed:\n", function()
+    local api = request.api
+    local fragment_spec = fragment_compile_spec(request.temp_source, request.prefix, request.payload.entry, api)
+    spawn(fragment_spec.command, string.format("Slang %s compile failed:\n", api == "opengl" and "GLSL" or "SPIR-V"), function()
+        if api == "opengl" then
+            local ok, glsl_err = adapt_opengl_fragment_glsl(fragment_spec.fragment_spv)
+            if not ok then
+                finish(nil, "Failed to adapt OpenGL GLSL:\n" .. glsl_err)
+                return
+            end
+        end
+
         local reflection, reflect_err = parse_reflection(fragment_spec.reflection_json)
         if not reflection then
             finish(nil, "Failed to parse reflection:\n" .. reflect_err)
@@ -1652,13 +1785,13 @@ start_preview_job = function(opts, on_complete)
             return
         end
 
-        local vertex_glsl, vertex_err = build_vertex_glsl(entry)
+        local vertex_glsl, vertex_err = build_vertex_glsl(entry, api)
         if not vertex_glsl then
             finish(nil, vertex_err)
             return
         end
 
-        local vertex_spec = vertex_compile_spec(request.prefix)
+        local vertex_spec = vertex_compile_spec(request.prefix, api)
         local ok, write_err = write_text(vertex_spec.source_path, vertex_glsl)
         if not ok then
             finish(nil, write_err)
@@ -1678,7 +1811,7 @@ start_preview_job = function(opts, on_complete)
         local prepared_specs = prepared_specs_or_err
 
         local result = {
-            api = detect_api(reflection, entry),
+            api = api,
             entry = request.payload.entry,
             expression = request.payload.expression,
             cursor_line = request.cursor_line,
@@ -1697,15 +1830,21 @@ start_preview_job = function(opts, on_complete)
             return
         end
 
-        spawn(vertex_spec.command, "Vertex SPIR-V compile failed:\n", function()
+        local function spawn_render()
             spawn(
-                render_command_spec(vertex_spec.output_path, fragment_spec.fragment_spv, manifest_path, request.output_png, request.payload.entry),
-                "Vulkan preview render failed:\n",
+                render_command_spec(api, vertex_spec.output_path, fragment_spec.fragment_spv, manifest_path, request.output_png, request.payload.entry),
+                string.format("%s preview render failed:\n", api == "opengl" and "OpenGL" or "Vulkan"),
                 function()
                     finish(result, nil)
                 end
             )
-        end)
+        end
+
+        if vertex_spec.command then
+            spawn(vertex_spec.command, string.format("Vertex %s build failed:\n", api == "opengl" and "GLSL" or "SPIR-V"), spawn_render)
+        else
+            spawn_render()
+        end
     end)
 
     return true
@@ -2153,6 +2292,10 @@ function M.clear_preview()
     state.preview_buf = nil
 end
 
+function M.get_api()
+    return detect_api()
+end
+
 function M.open_test_shader()
     local path = "/tmp/shaderdebug_test.slang"
     local lines = {
@@ -2197,6 +2340,7 @@ end
 
 function M.setup(user_config)
     config = vim.tbl_deep_extend("force", default_config, user_config or {})
+    config.api = normalize_api(config.api) or default_config.api
     state.auto_enabled = config.auto_preview
     setup_preview_highlights()
 

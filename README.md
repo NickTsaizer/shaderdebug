@@ -9,7 +9,7 @@ A Neovim plugin for live Slang shader debugging — preview what any line of you
 - **Live shader previews** — move your cursor to any Slang line and see what it outputs rendered on a quad
 - **Reflection-driven** — automatically detects textures, buffers, samplers, and uniform bindings from your shader
 - **Interactive inputs** — click or press Enter on any input to bind custom images, textures, or JSON data
-- **Vulkan-backed** — renders previews using your system's Vulkan GPU for speed
+- **Dual backend** — render previews through Vulkan or headless OpenGL/EGL
 - **Non-blocking** — everything runs in the background, so your editor never stutters
 
 ## Installation
@@ -30,7 +30,9 @@ A Neovim plugin for live Slang shader debugging — preview what any line of you
 - **image.nvim** — for displaying rendered previews inline
 - **slangc** — Slang compiler (`~/VulkanSDK/.../bin/slangc`)
 - **glslangValidator** — for SPIR-V compilation
-- **Vulkan** — GPU rendering (works with Mesa/AMDVLK/Proprietary)
+- **Vulkan** — required when `api = "vulkan"` or `api = "auto"`
+- **EGL + OpenGL** — required when `api = "opengl"` (headless/offscreen path)
+- **libepoxy** — OpenGL function loading for the headless EGL path
 - **ffmpeg** — for non-PNG image conversion
 - **libpng** — PNG reading/writing
 
@@ -45,6 +47,14 @@ A Neovim plugin for live Slang shader debugging — preview what any line of you
 
 " Enable auto-preview on cursor move
 :ShaderDebugToggleAuto
+```
+
+Choose a backend globally in `setup()`:
+
+```lua
+require("shaderdebug").setup({
+  api = "vulkan", -- "vulkan", "opengl", or "auto" (currently falls back to Vulkan)
+})
 ```
 
 ## Usage
@@ -82,19 +92,52 @@ Pass options to `setup()`:
 
 ```lua
 require("shaderdebug").setup({
+  api = "vulkan",           -- "vulkan", "opengl", or "auto"
   auto_preview = false,      -- start with auto-preview disabled
-  debounce_ms = 180,        -- delay before rendering
-  image_size = 512,         -- preview image resolution
-  slangc = "slangc",        -- path to slangc
+  debounce_ms = 180,         -- delay before rendering
+  image_size = 512,          -- preview image resolution
+  slangc = "slangc",         -- path to slangc
   glslang_validator = "glslangValidator",
 })
+```
+
+### Backend notes
+
+- `api = "vulkan"` compiles Slang to SPIR-V and uses the Vulkan offscreen renderer
+- `api = "opengl"` compiles Slang to GLSL and uses a headless EGL/OpenGL renderer
+- `api = "auto"` currently resolves to Vulkan
+
+### OpenGL texture example
+
+```slang
+Texture2D<float4> albedo;
+SamplerState albedoSampler;
+
+struct FragmentInput
+{
+    float2 uv: TEXCOORD0;
+};
+
+[[shader("fragment")]]
+float4 fragment(FragmentInput input) : SV_Target0
+{
+    return albedo.Sample(albedoSampler, input.uv);
+}
+```
+
+Bind the texture from Neovim:
+
+```vim
+:ShaderDebugSetImage albedo /path/to/image.png
+:ShaderDebugPreview
 ```
 
 ## Known Limitations
 
 - Only **fragment shaders** are supported
 - Works best with **simple expressions** (assignments, returns)
+- OpenGL currently treats sampled textures as combined `sampler2D` uniforms internally
 
 ## Credits
 
-Built with [Slang](https://github.com/shader-slang/slang), [Vulkan](https://www.vulkan.org/), and [image.nvim](https://github.com/3rd/image.nvim).
+Built with [Slang](https://github.com/shader-slang/slang), [Vulkan](https://www.vulkan.org/), [EGL/OpenGL](https://www.khronos.org/egl/), and [image.nvim](https://github.com/3rd/image.nvim).
