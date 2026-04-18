@@ -61,7 +61,6 @@ A Neovim plugin for live Slang shader debugging — preview what any line of you
 | `:ShaderDebugSetData <name> <json>` | Bind JSON data to a buffer input |
 | `:ShaderDebugClearInput <name>` | Clear an input override |
 | `:ShaderDebugClear` | Close the preview and disable auto-preview |
-| `:ShaderDebugOpenTestShader` | Open a test shader for experimentation |
 
 ### Interactive Preview
 
