@@ -2,7 +2,7 @@
 
 A Neovim plugin for live Slang shader debugging — preview what any line of your fragment shader outputs, right in the editor.
 
-![shaderdebug preview](./assets/preview.mp4)
+![shaderdebug preview](./assets/preview.gif)
 
 ## What it does
 
