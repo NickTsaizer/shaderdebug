@@ -18,18 +18,7 @@ A Neovim plugin for live Slang shader debugging — preview what any line of you
 
 ```lua
 {
-  "your-username/shaderdebug",
-  ft = { "slang" },
-  dependencies = { "3rd/image.nvim" },
-}
-```
-
-Or with AstroNvim:
-
-```lua
--- in lua/plugins/
-{
-  "your-username/shaderdebug",
+  "NickTsaizer/shaderdebug",
   ft = { "slang" },
   dependencies = { "3rd/image.nvim" },
 }
@@ -88,29 +77,6 @@ Move the cursor onto an input line and press:
 - **x** — clear the input override
 - **r** — refresh the preview
 
-### Example Workflow
-
-```vim
-" Open your shader
-:e materials/my_shader.slang
-
-" Enable live preview
-:ShaderDebugToggleAuto
-
-" Move cursor to a line like:
-"   float4 color = sceneTexture.Sample(uv);
-
-" The preview updates automatically!
-
-" Want to use your own texture?
-" Move to the 'sceneTexture' input row, press Enter
-" Choose "Set image path", enter: ~/textures/my_texture.png
-
-" Want to tweak a uniform buffer?
-" Move to the 'globals' input row, press Enter
-" Edit the JSON in the split, :write to apply
-```
-
 ## Configuration
 
 Pass options to `setup()`:
@@ -122,25 +88,13 @@ require("shaderdebug").setup({
   image_size = 512,         -- preview image resolution
   slangc = "slangc",        -- path to slangc
   glslang_validator = "glslangValidator",
-  ffmpeg = "ffmpeg",
 })
 ```
-
-## How it works
-
-1. **Instrument** — the current line is rewritten to `return __shaderdebug_toColor(<expr>);`
-2. **Reflect** — Slang reflection extracts all shader inputs (textures, buffers, samplers)
-3. **Compile** — both fragment (Slang→SPIR-V) and vertex (GLSL→SPIR-V) are compiled
-4. **Bind** — inputs are bound with defaults or your custom overrides
-5. **Render** — Vulkan draws a fullscreen quad with the instrumented shader
-6. **Display** — PNG output is shown inline via image.nvim / kitty graphics
 
 ## Known Limitations
 
 - Only **fragment shaders** are supported
 - Works best with **simple expressions** (assignments, returns)
-- Complex control flow may not render correctly in preview
-- Requires GPU with **Vulkan 1.2+** support
 
 ## Credits
 
