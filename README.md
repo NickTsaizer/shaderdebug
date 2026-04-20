@@ -18,7 +18,7 @@ A Neovim plugin for live Slang shader debugging — preview what any line of you
 
 ```lua
 {
-  "NickTsaizer/shaderdebug",
+  "NickTsaizer/shaderdebug.nvim",
   ft = { "slang" },
   dependencies = { "3rd/image.nvim" },
 }
